@@ -1,0 +1,5 @@
+---
+k8s_minor: "1.36"
+pod_cidr: "10.244.0.0/16"
+flannel_version: "v0.28.9"
+kube_user: "{{ ansible_env.SUDO_USER | default('root') }}"

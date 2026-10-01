@@ -1,0 +1,8 @@
+---
+- name: Build single-node kubeadm cluster
+  hosts: k8s
+  become: true
+  roles:
+    - node_prep
+    - cluster
+    - tools

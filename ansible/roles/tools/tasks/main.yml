@@ -1,0 +1,6 @@
+---
+- name: Install helm
+  community.general.snap:
+    name: helm
+    classic: true
+    state: present

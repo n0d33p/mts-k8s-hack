@@ -1,0 +1,43 @@
+---
+- name: Initialize control plane
+  ansible.builtin.command: kubeadm init --pod-network-cidr={{ pod_cidr }}
+  args:
+    creates: /etc/kubernetes/admin.conf
+
+- name: Create .kube directory for the admin user
+  ansible.builtin.file:
+    path: "/home/{{ kube_user }}/.kube"
+    state: directory
+    owner: "{{ kube_user }}"
+    group: "{{ kube_user }}"
+    mode: "0700"
+
+- name: Copy admin kubeconfig to the admin user
+  ansible.builtin.copy:
+    src: /etc/kubernetes/admin.conf
+    dest: "/home/{{ kube_user }}/.kube/config"
+    remote_src: true
+    owner: "{{ kube_user }}"
+    group: "{{ kube_user }}"
+    mode: "0600"
+
+- name: Allow scheduling on the control-plane node (single-node cluster)
+  ansible.builtin.command: >
+    kubectl --kubeconfig /etc/kubernetes/admin.conf
+    taint nodes --all node-role.kubernetes.io/control-plane-
+  register: untaint
+  changed_when: "'untainted' in untaint.stdout"
+  failed_when: untaint.rc != 0 and 'not found' not in untaint.stderr
+
+- name: Install flannel CNI
+  ansible.builtin.command: >
+    kubectl --kubeconfig /etc/kubernetes/admin.conf apply -f
+    https://github.com/flannel-io/flannel/releases/download/{{ flannel_version }}/kube-flannel.yml
+  register: flannel
+  changed_when: "'created' in flannel.stdout or 'configured' in flannel.stdout"
+
+- name: Wait for the node to become Ready
+  ansible.builtin.command: >
+    kubectl --kubeconfig /etc/kubernetes/admin.conf
+    wait --for=condition=Ready node --all --timeout=300s
+  changed_when: false
