@@ -1,0 +1,11 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: web
+  namespace: demo
+spec:
+  selector:
+    matchLabels: {app: web}
+  endpoints:
+  - port: metrics
+    interval: 15s

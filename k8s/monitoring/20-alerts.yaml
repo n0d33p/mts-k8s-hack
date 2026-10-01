@@ -1,0 +1,21 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: web-alerts
+  namespace: demo
+spec:
+  groups:
+  - name: web
+    rules:
+    - alert: WebNoAvailableReplicas
+      expr: kube_deployment_status_replicas_available{namespace="demo",deployment="web"} == 0
+      for: 1m
+      labels: {severity: critical}
+      annotations:
+        summary: "Deployment web has no available replicas"
+    - alert: NginxExporterDown
+      expr: nginx_up{namespace="demo"} == 0
+      for: 1m
+      labels: {severity: warning}
+      annotations:
+        summary: "nginx stub_status is not reachable from the exporter"
