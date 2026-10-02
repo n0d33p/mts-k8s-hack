@@ -60,6 +60,8 @@ data:
     setup.ilm.enabled: false
     setup.template.name: "demo-logs"
     setup.template.pattern: "demo-logs-*"
+    setup.template.settings:
+      index.number_of_replicas: 0
 ---
 apiVersion: apps/v1
 kind: DaemonSet

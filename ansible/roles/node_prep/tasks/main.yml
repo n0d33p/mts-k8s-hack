@@ -72,6 +72,9 @@
     replace: 'SystemdCgroup = true'
   notify: restart containerd
 
+- name: Apply containerd config now (before kubeadm uses the runtime)
+  ansible.builtin.meta: flush_handlers
+
 - name: Enable containerd
   ansible.builtin.systemd:
     name: containerd

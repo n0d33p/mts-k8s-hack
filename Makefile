@@ -25,9 +25,10 @@ rules:
 > kubectl apply -f k8s/monitoring/
 
 logging:
-> kubectl apply -f k8s/logging/
-> kubectl -n logging rollout restart ds/filebeat
+> kubectl apply -f k8s/logging/00-namespace.yaml -f k8s/logging/10-elasticsearch.yaml
 > kubectl -n logging rollout status deploy/elasticsearch --timeout=300s
+> kubectl apply -f k8s/logging/20-filebeat.yaml
+> kubectl -n logging rollout restart ds/filebeat
 > kubectl -n logging rollout status ds/filebeat --timeout=180s
 
 deploy: app gateway monitoring rules logging

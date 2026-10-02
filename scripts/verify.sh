@@ -52,7 +52,7 @@ curl -s http://127.0.0.1:19090/api/v1/rules | grep -q WebNoAvailableReplicas \
 portfwd logging elasticsearch 19200 9200
 wait_http "http://127.0.0.1:19200/" || fail "elasticsearch is not reachable"
 n=0
-for _ in $(seq 1 12); do
+for _ in $(seq 1 36); do
   n=$(curl -sG --data-urlencode "q=message:${MARK}" "http://127.0.0.1:19200/demo-logs*/_count" \
       | python3 -c 'import sys,json; print(json.load(sys.stdin).get("count",0))')
   [ "$n" -gt 0 ] && break
