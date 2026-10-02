@@ -34,6 +34,22 @@ resp=$(curl -fsS -H "Host: hello.local" "http://127.0.0.1:${NP}/")
 code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:${NP}/")
 [ "$code" = "404" ] && ok "gateway: unknown host returns 404" || fail "gateway: expected 404, got ${code}"
 
+# 2b. Gateway API: path routing (hello.local/v2 -> web-v2)
+resp=$(curl -fsS -H "Host: hello.local" "http://127.0.0.1:${NP}/v2")
+[ "$resp" = "Hello World! v2" ] && ok "gateway: path /v2 routed to web-v2" || fail "gateway: /v2 returned '${resp}'"
+
+# 2c. Gateway API: hostname routing + traffic splitting 90/10 (canary.local)
+v2=0; total=200
+for _ in $(seq 1 "$total"); do
+  r=$(curl -fsS -H "Host: canary.local" "http://127.0.0.1:${NP}/")
+  if [ "$r" = "Hello World! v2" ]; then v2=$((v2+1)); fi
+done
+if [ "$v2" -ge 1 ] && [ "$v2" -le 50 ]; then
+  ok "gateway: canary.local split, ${v2}/${total} requests hit v2 (expected ~10%)"
+else
+  fail "gateway: unexpected split, v2=${v2}/${total}"
+fi
+
 # unique marker for the logging check
 MARK="verify$(date +%s)"
 for _ in $(seq 1 5); do curl -s -o /dev/null -A "$MARK" -H "Host: hello.local" "http://127.0.0.1:${NP}/"; done

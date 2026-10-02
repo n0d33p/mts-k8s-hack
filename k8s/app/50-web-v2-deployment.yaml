@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-v2
+  namespace: demo
+  labels: {app: web-v2}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: web-v2}
+  template:
+    metadata:
+      labels: {app: web-v2}
+    spec:
+      containers:
+      - name: nginx
+        image: nginxinc/nginx-unprivileged:1.28-alpine
+        ports:
+        - {name: http, containerPort: 8080}
+        volumeMounts:
+        - {name: conf, mountPath: /etc/nginx/conf.d}
+        readinessProbe:
+          httpGet: {path: /, port: http}
+        livenessProbe:
+          httpGet: {path: /, port: http}
+          initialDelaySeconds: 10
+        resources:
+          requests: {cpu: 20m, memory: 32Mi}
+          limits: {cpu: 200m, memory: 128Mi}
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          capabilities: {drop: [ALL]}
+      - name: exporter
+        image: nginx/nginx-prometheus-exporter:1.5.3
+        args: ["--nginx.scrape-uri=http://127.0.0.1:8080/stub_status"]
+        ports:
+        - {name: metrics, containerPort: 9113}
+        resources:
+          requests: {cpu: 10m, memory: 16Mi}
+          limits: {cpu: 100m, memory: 64Mi}
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          capabilities: {drop: [ALL]}
+      volumes:
+      - name: conf
+        configMap: {name: web-v2-nginx}

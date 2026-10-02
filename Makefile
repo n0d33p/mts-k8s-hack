@@ -9,6 +9,7 @@ cluster:
 app:
 > kubectl apply -f k8s/app/
 > kubectl -n demo rollout status deploy/web --timeout=120s
+> kubectl -n demo rollout status deploy/web-v2 --timeout=120s
 
 gateway:
 > kubectl kustomize "https://github.com/nginx/nginx-gateway-fabric/config/crd/gateway-api/standard?ref=v$(NGF_VERSION)" | kubectl apply -f -

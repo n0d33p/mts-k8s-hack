@@ -12,6 +12,13 @@ spec:
   - matches:
     - path:
         type: PathPrefix
+        value: /v2
+    backendRefs:
+    - name: web-v2
+      port: 80
+  - matches:
+    - path:
+        type: PathPrefix
         value: /
     backendRefs:
     - name: web
