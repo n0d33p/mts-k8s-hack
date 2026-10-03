@@ -1,0 +1,49 @@
+{
+  "uid": "web-overview",
+  "title": "Web overview",
+  "tags": ["demo"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "15s",
+  "time": {"from": "now-30m", "to": "now"},
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "Available replicas (namespace demo)",
+      "gridPos": {"h": 4, "w": 12, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "expr": "sum(kube_deployment_status_replicas_available{namespace=\"demo\"})"}]
+    },
+    {
+      "id": 2, "type": "stat", "title": "nginx_up (min across pods, 1 = ok)",
+      "gridPos": {"h": 4, "w": 12, "x": 12, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "expr": "min(nginx_up{namespace=\"demo\"})"}]
+    },
+    {
+      "id": 3, "type": "timeseries", "title": "HTTP requests per second by pod",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "legendFormat": "{{pod}}", "expr": "sum by (pod) (rate(nginx_http_requests_total{namespace=\"demo\"}[1m]))"}]
+    },
+    {
+      "id": 4, "type": "timeseries", "title": "Active connections by pod",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "legendFormat": "{{pod}}", "expr": "sum by (pod) (nginx_connections_active{namespace=\"demo\"})"}]
+    },
+    {
+      "id": 5, "type": "timeseries", "title": "CPU usage (cores) by pod",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "legendFormat": "{{pod}}", "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"demo\",container!=\"\"}[2m]))"}]
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "Memory working set by pod",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []},
+      "targets": [{"refId": "A", "legendFormat": "{{pod}}", "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"demo\",container!=\"\"})"}]
+    }
+  ]
+}

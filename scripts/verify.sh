@@ -7,19 +7,20 @@ trap cleanup EXIT
 
 ok()   { echo "[ OK ] $*"; }
 fail() { echo "[FAIL] $*"; exit 1; }
+curl() { command curl --connect-timeout 5 --max-time 15 "$@"; }
 
 portfwd() { # namespace service local_port remote_port
   kubectl -n "$1" port-forward "svc/$2" "$3:$4" >/dev/null 2>&1 &
   PF_PIDS+=($!)
 }
 
-wait_http() { # url
-  for _ in $(seq 1 20); do curl -fs "$1" >/dev/null 2>&1 && return 0; sleep 1; done
+wait_http() { # url [tries]
+  for _ in $(seq 1 "${2:-20}"); do curl -fs --max-time 3 "$1" >/dev/null 2>&1 && return 0; sleep 1; done
   return 1
 }
 
 promq() {
-  curl -sG --data-urlencode "query=$1" "http://127.0.0.1:19090/api/v1/query" \
+  curl -sG --max-time 10 --data-urlencode "query=$1" "http://127.0.0.1:19090/api/v1/query" \
     | python3 -c 'import sys,json; r=json.load(sys.stdin)["data"]["result"]; print(r[0]["value"][1] if r else "")'
 }
 
@@ -57,12 +58,40 @@ for _ in $(seq 1 5); do curl -s -o /dev/null -A "$MARK" -H "Host: hello.local" "
 # 3. Prometheus
 portfwd monitoring kps-kube-prometheus-stack-prometheus 19090 9090
 wait_http "http://127.0.0.1:19090/-/ready" || fail "prometheus is not reachable"
-down=$(promq 'count(up==0) or vector(0)')
-[ "$down" = "0" ] && ok "prometheus: all targets are up" || fail "prometheus: ${down} target(s) down"
+down=1
+for _ in $(seq 1 36); do
+  down=$(promq 'count(up==0) or vector(0)')
+  [ "$down" = "0" ] && break
+  sleep 5
+done
+if [ "$down" = "0" ]; then
+  ok "prometheus: all targets are up"
+else
+  echo "[FAIL] prometheus: ${down} target(s) down:"
+  curl -s http://127.0.0.1:19090/api/v1/targets | python3 -c '
+import sys, json
+for t in json.load(sys.stdin)["data"]["activeTargets"]:
+    if t["health"] != "up":
+        print("   ", t["labels"].get("job"), t["scrapeUrl"], "-", t["lastError"][:120])
+'
+  exit 1
+fi
 [ -n "$(promq 'sum(nginx_http_requests_total)')" ] && ok "prometheus: nginx_http_requests_total is collected" \
   || fail "prometheus: no nginx metrics"
 curl -s http://127.0.0.1:19090/api/v1/rules | grep -q WebNoAvailableReplicas \
   && ok "prometheus: alert rules loaded" || fail "prometheus: alert rules missing"
+
+# 3b. Grafana dashboard provisioned from the repository
+GP=$(kubectl -n monitoring get secret grafana-admin -o jsonpath='{.data.admin-password}' | base64 -d)
+portfwd monitoring kps-grafana 13000 80
+wait_http "http://127.0.0.1:13000/api/health" 120 || fail "grafana is not reachable"
+d=0
+for _ in $(seq 1 12); do
+  d=$(curl -fs --max-time 5 -u "admin:${GP}" "http://127.0.0.1:13000/api/search?query=Web%20overview" | grep -c web-overview || true)
+  [ "$d" -gt 0 ] && break
+  sleep 5
+done
+[ "$d" -gt 0 ] && ok "grafana: dashboard 'Web overview' is provisioned" || fail "grafana: dashboard not found"
 
 # 4. Logs (Filebeat -> Elasticsearch)
 portfwd logging elasticsearch 19200 9200

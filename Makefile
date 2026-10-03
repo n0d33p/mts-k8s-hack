@@ -24,6 +24,7 @@ monitoring:
 
 rules:
 > kubectl apply -f k8s/monitoring/
+> kubectl -n monitoring create configmap web-dashboard --from-file=web-overview.json=k8s/monitoring/dashboards/web-overview.json --dry-run=client -o yaml | kubectl label --local -f - grafana_dashboard=1 -o yaml | kubectl apply -f -
 
 logging:
 > kubectl apply -f k8s/logging/00-namespace.yaml -f k8s/logging/10-elasticsearch.yaml
