@@ -1,3 +1,4 @@
+[![CI](https://github.com/n0d33p/mts-k8s-hack/actions/workflows/ci.yml/badge.svg)](https://github.com/n0d33p/mts-k8s-hack/actions/workflows/ci.yml)
 # Kubernetes + Gateway API + Prometheus + Filebeat (MTS Engineer Hack, DevOps)
 
 Воспроизводимое решение: одноузловой кластер **kubeadm** на Ubuntu 24.04, демо-приложение (nginx) за **Kubernetes Gateway API**, мониторинг на **Prometheus**, сбор логов **Filebeat → Elasticsearch**. Всё разворачивается тремя командами: `make cluster`, `make deploy`, `make verify`.
@@ -112,6 +113,15 @@ curl -sG 'http://127.0.0.1:9200/demo-logs*/_search' --data-urlencode 'q=message:
 
 В ответе должна быть запись `message` с `my-test-marker` и `kubernetes.namespace: demo`.
 
+## CI
+
+Файл `.github/workflows/ci.yml`, запускается при каждом push в `main`:
+
+1. **lint:** `yamllint`, `ansible-playbook --syntax-check`, `kubeconform` для манифестов, `helm template` для чартов NGINX Gateway Fabric и kube-prometheus-stack с нашими values.
+2. **smoke:** временный кластер **kind** на раннере GitHub, `make app` и `make gateway`, затем запросы через Gateway (`hello.local` и `hello.local/v2`) с проверкой ответов.
+
+Границы: полноценное развёртывание на kubeadm, мониторинг и логи в CI не входят (у раннера не хватает ресурсов), их проверяет `make verify` на реальной VM. Дымовой тест использует kind, а не kubeadm.
+
 ## Структура репозитория
 
 ```
@@ -123,6 +133,7 @@ k8s/gateway/             # Gateway, HTTPRoute (hello.local, canary.local), value
 k8s/monitoring/          # values kube-prometheus-stack, ServiceMonitor, алерты, дашборд
 k8s/logging/             # Elasticsearch, Filebeat
 scripts/verify.sh        # автоматическая проверка
+.github/workflows/ci.yml # CI
 ```
 
 ## Дополнительные возможности
@@ -132,6 +143,7 @@ scripts/verify.sh        # автоматическая проверка
 - **Логи:** централизованное хранение и поиск в Elasticsearch, обогащение метаданными Kubernetes.
 - **Надёжность и безопасность:** probes и requests/limits у всех подов приложения, `runAsNonRoot` и `drop: ALL` capabilities, версии пакетов Kubernetes зафиксированы, секреты (пароль Grafana) генерируются при деплое и не хранятся в репозитории, автоматическая проверка `make verify`.
 - **Идемпотентный деплой** и проверка «с нуля» на чистой Ubuntu 24.04.
+- **CI (GitHub Actions):** линтинг YAML и Ansible, валидация манифестов по схемам Kubernetes, проверка рендеринга Helm-чартов с нашими values и дымовой тест на временном kind-кластере (приложение + Gateway API).
 
 ## Известные ограничения
 
