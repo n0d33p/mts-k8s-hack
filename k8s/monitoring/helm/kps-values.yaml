@@ -21,7 +21,7 @@ grafana:
     timeoutSeconds: 5
     periodSeconds: 10
     failureThreshold: 6
-    
+
 prometheus:
   prometheusSpec:
     retention: 2d

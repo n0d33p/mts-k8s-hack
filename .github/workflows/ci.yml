@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq yamllint ansible
+          curl -sL https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz | tar xz
+          sudo mv kubeconform /usr/local/bin/
+
+      - name: yamllint
+        run: yamllint .
+
+      - name: Ansible syntax check
+        run: cd ansible && ansible-playbook site.yml --syntax-check
+
+      - name: Validate Kubernetes manifests
+        run: |
+          kubeconform -strict -summary -ignore-missing-schemas -kubernetes-version 1.31.0 \
+            k8s/app/*.yaml k8s/gateway/*.yaml k8s/logging/*.yaml k8s/monitoring/*.yaml
+
+      - name: Render Helm charts with our values
+        run: |
+          set -a; . ./versions.env; set +a
+          helm template ngf oci://ghcr.io/nginx/charts/nginx-gateway-fabric \
+            --version "$NGF_VERSION" -f k8s/gateway/helm/ngf-values.yaml > /dev/null
+          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+          helm template kps prometheus-community/kube-prometheus-stack \
+            --version "$KPS_VERSION" -f k8s/monitoring/helm/kps-values.yaml > /dev/null
+
+  smoke:
+    needs: lint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+
+      - name: Deploy app and Gateway API
+        run: |
+          make app
+          make gateway
+
+      - name: Smoke test through the Gateway
+        run: |
+          for i in $(seq 1 36); do
+            kubectl -n demo get deploy web-gw-nginx && break
+            sleep 5
+          done
+          kubectl -n demo rollout status deploy/web-gw-nginx --timeout=180s
+          kubectl -n demo port-forward svc/web-gw-nginx 8080:80 &
+          sleep 5
+          test "$(curl -fsS -H 'Host: hello.local' http://127.0.0.1:8080/)" = "Hello World!"
+          test "$(curl -fsS -H 'Host: hello.local' http://127.0.0.1:8080/v2)" = "Hello World! v2"
+          echo "Smoke test passed"
